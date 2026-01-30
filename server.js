@@ -10,8 +10,7 @@ const app = express();
 app.use(
   cors({
     origin: [
-      "http://localhost:5173", // your local dev
-      "https://yourfrontenddomain.com", // if deployed
+      "*", // if deployed
     ],
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -84,6 +83,14 @@ app.post("/v1/chat/completions", async (req, res) => {
     console.error(err);
     res.end();
   }
+});
+
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    message: "Server is running ✅",
+    timestamp: new Date(),
+  });
 });
 
 const PORT = process.env.PORT || 3000;
