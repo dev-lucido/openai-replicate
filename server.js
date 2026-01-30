@@ -9,10 +9,14 @@ const app = express();
 
 app.use(
   cors({
-    origin: "*",
+    origin: [
+      "http://localhost:5173", // your local dev
+      "https://yourfrontenddomain.com", // if deployed
+    ],
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+    credentials: true,
+  })
 );
 
 app.use(express.json());
@@ -21,7 +25,7 @@ const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
 });
 
-app.options("/v1/chat/completions", cors()); // handle preflight
+app.options("/v1/chat/completions", (req, res) => res.sendStatus(200)); // handle preflight
 
 app.post("/v1/chat/completions", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
