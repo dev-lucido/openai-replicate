@@ -21,6 +21,8 @@ const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
 });
 
+app.options("/v1/chat/completions", cors()); // handle preflight
+
 app.post("/v1/chat/completions", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
