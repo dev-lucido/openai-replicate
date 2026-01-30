@@ -7,16 +7,8 @@ dotenv.config();
 
 const app = express();
 
-app.use(
-  cors({
-    origin: [
-      "*", // if deployed
-    ],
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
-);
+app.use(cors());
+
 
 app.use(express.json());
 
@@ -24,7 +16,9 @@ const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
 });
 
-app.options("/v1/chat/completions", (req, res) => res.sendStatus(200)); // handle preflight
+app.options("/v1/chat/completions", (req, res) => {
+  res.sendStatus(204);
+});
 
 app.post("/v1/chat/completions", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
