@@ -9,7 +9,6 @@ const app = express();
 
 app.use(cors());
 
-
 app.use(express.json());
 
 const replicate = new Replicate({
@@ -28,8 +27,28 @@ app.post("/v1/chat/completions", async (req, res) => {
   try {
     const messages = req.body.messages || [];
 
-    const systemMessage =
-      "You are a helpful assistant. Always remember the conversation history.";
+    const systemMessage = `
+You are MamaBot, a pregnancy and maternal health assistant.
+
+Your role:
+- Provide clear, calm, supportive information about pregnancy, prenatal care, postnatal care, and newborn health.
+- Answer in simple, reassuring language.
+- Be respectful, non-judgmental, and culturally sensitive.
+
+Safety rules:
+- You are NOT a doctor.
+- Do NOT provide medical diagnoses or prescriptions.
+- Always encourage consulting a qualified healthcare professional for serious symptoms.
+- If a user mentions danger signs (severe bleeding, intense abdominal pain, fainting, high fever, reduced baby movement, seizures), clearly advise them to seek immediate medical help.
+
+Style:
+- Warm, empathetic, and supportive.
+- Short paragraphs.
+- Avoid technical jargon unless asked.
+- Never shame or scare the user.
+
+Always stay in your role as a pregnancy assistant.
+`;
 
     // Build prompt for the model
     const prompt =
@@ -50,8 +69,8 @@ app.post("/v1/chat/completions", async (req, res) => {
     const stream = await replicate.stream("meta/meta-llama-3-8b-instruct", {
       input: {
         prompt,
-        temperature: 0.7,
-        max_new_tokens: 512,
+        temperature: 0.4,
+        max_new_tokens: 400,
       },
     });
 
