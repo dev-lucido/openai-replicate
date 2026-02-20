@@ -526,3 +526,150 @@ app.get("/health", (_, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Gemini server running on port ${PORT}`));
+
+
+
+// whatsapp integration
+
+// Webhook verification (one-time, required by Meta)
+app.get("/webhook", (req, res) => {
+  const VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN; // you choose this string
+
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (mode === "subscribe" && token === VERIFY_TOKEN) {
+    console.log("Webhook verified ✅");
+    res.status(200).send(challenge);
+  } else {
+    res.sendStatus(403);
+  }
+});
+
+// Receive incoming WhatsApp messages
+app.post("/webhook", async (req, res) => {
+  res.sendStatus(200); // Always respond fast to Meta
+
+  const body = req.body;
+  if (body.object !== "whatsapp_business_account") return;
+
+  const entry = body.entry?.[0]?.changes?.[0]?.value;
+  const message = entry?.messages?.[0];
+
+  if (!message || message.type !== "text") return;
+
+  const from = message.from;         // sender's WhatsApp number
+  const text = message.text.body;    // their message text
+
+  await handleWhatsAppMessage(from, text);
+});
+
+
+// In-memory session store (use Redis in production)
+const sessions = {};
+
+async function handleWhatsAppMessage(from, text) {
+  // Init session for new users
+  if (!sessions[from]) {
+    sessions[from] = { language: null, messages: [] };
+    await sendWhatsAppMessage(from,
+      "👶 *Hi, I'm MamaBot!*\n\nI'm here to help with pregnancy, prenatal care, postpartum care, and newborn health.\n\nReply with:\n1️⃣ for English\n2️⃣ for සිංහල\n3️⃣ for தமிழ்"
+    );
+    return;
+  }
+
+  const session = sessions[from];
+
+  // Language selection
+  if (!session.language) {
+    const pick = text.trim();
+    if (pick === "1") session.language = "en";
+    else if (pick === "2") session.language = "si";
+    else if (pick === "3") session.language = "ta";
+    else {
+      await sendWhatsAppMessage(from, "Please reply with 1, 2, or 3 to choose your language.");
+      return;
+    }
+
+    const confirmations = {
+      en: "Great! I'll continue in *English* 💙",
+      si: "හරි! මම *සිංහලෙන්* ඔබට උදව් කරන්නම් 💙",
+      ta: "சரி! நான் *தமிழில்* உதவுகிறேன் 💙",
+    };
+    await sendWhatsAppMessage(from, confirmations[session.language]);
+    return;
+  }
+
+  // Add user message to history
+  session.messages.push({ role: "user", content: text });
+
+  // Keep last 8 messages only
+  if (session.messages.length > 8) {
+    session.messages = session.messages.slice(-8);
+  }
+
+  // Call your existing Gemini logic
+  const reply = await getGeminiReply(session.messages, session.language);
+
+  // Add assistant reply to history
+  session.messages.push({ role: "assistant", content: reply });
+
+  await sendWhatsAppMessage(from, reply);
+}
+
+
+async function getGeminiReply(messages, language = "en") {
+  const languageInstructionMap = {
+    en: "Respond ONLY in English.",
+    si: "සිංහලෙන් පමණක් පිළිතුරු දෙන්න.",
+    ta: "தமிழில் மட்டும் பதிலளிக்கவும்.",
+  };
+
+  const systemPrompt = `You are MamaBot... ${languageInstructionMap[language]}`; // your existing prompt
+
+  const filtered = messages.filter(m => m.role === "user" || m.role === "assistant");
+  const safeHistory = filtered.slice(filtered.findIndex(m => m.role === "user"));
+  const chatHistory = safeHistory.slice(0, -1).map(m => ({
+    role: m.role === "user" ? "user" : "model",
+    parts: [{ text: m.content }],
+  }));
+
+  const lastUserMessage = safeHistory[safeHistory.length - 1].content;
+
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.5-flash-lite",
+    systemInstruction: systemPrompt,
+  });
+
+  const chat = model.startChat({
+    history: chatHistory,
+    generationConfig: { temperature: 0.4, maxOutputTokens: 500 },
+  });
+
+  const result = await chat.sendMessage(lastUserMessage);
+  return result.response.text();
+}
+
+
+async function sendWhatsAppMessage(to, text) {
+  const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const TOKEN = process.env.WHATSAPP_TOKEN;
+
+  await fetch(
+    `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${TOKEN}`,
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to,
+        type: "text",
+        text: { body: text },
+      }),
+    }
+  );
+}
