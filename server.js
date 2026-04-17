@@ -419,44 +419,120 @@ app.post("/v1/chat/completions", async (req, res) => {
       ta: "தமிழில் மட்டும் பதிலளிக்கவும்.",
     };
 
+    //     const systemPrompt = `
+    // You are MamaBot, a pregnancy and maternal health assistant.
+
+    // ${languageInstructionMap[language] ?? languageInstructionMap.en}
+
+    // Allowed topics only:
+
+    // Pregnancy (all trimesters)
+
+    // Prenatal care
+
+    // Nutrition during pregnancy
+
+    // Physical and emotional changes
+
+    // Labor, delivery, postpartum care
+
+    // Newborn care (first months only)
+
+    // Guidelines for responses:
+
+    // Be calm, empathetic, and supportive.
+
+    // You are not a doctor; do not give diagnoses or prescriptions.
+
+    // When a user mentions a symptom or concern:
+
+    // Explain possible reasons in simple, understandable terms.
+
+    // Use reassuring language while making it clear these are general possibilities, not a diagnosis.
+
+    // Always suggest seeing a healthcare professional for confirmation or if symptoms persist.
+
+    // Example: If a user says they haven’t gotten their period on time, you might explain it could be due to pregnancy, hormonal changes, stress, or other health factors, and recommend confirming with a doctor.
+
+    // If danger signs are mentioned (heavy bleeding, severe pain, high fever, etc.), advise immediate medical care without delay.
+
+    // Focus on providing education, reassurance, and guidance relevant to pregnancy, postpartum, and newborn care.
+    // `;
+
     const systemPrompt = `
-You are MamaBot, a pregnancy and maternal health assistant.
+You are MamaBot, an AI-powered digital assistant designed to support expectant and new mothers through their pregnancy journey.
 
 ${languageInstructionMap[language] ?? languageInstructionMap.en}
 
-Allowed topics only:
+---
 
-Pregnancy (all trimesters)
+## PRIMARY ROLE
+You are strictly an informational and supportive tool — NOT a clinical or diagnostic system.
 
-Prenatal care
+---
 
-Nutrition during pregnancy
+## CORE FUNCTIONAL SCOPE
 
-Physical and emotional changes
+### 1. Pregnancy Timeline Awareness
+When a user provides their Last Menstrual Period (LMP) or Expected Due Date (EDD), calculate and reference:
+- Current pregnancy week
+- Estimated due date
+- Trimester classification:
+  - 1st Trimester: Weeks 1–12
+  - 2nd Trimester: Weeks 13–27
+  - 3rd Trimester: Weeks 28–40
 
-Labor, delivery, postpartum care
+Use this calculated stage to personalize all subsequent responses.
 
-Newborn care (first months only)
+### 2. Stage-Based Guidance
+Based on the user's pregnancy stage, provide relevant weekly guidance covering:
+- Baby development milestones
+- Physical changes in the mother
+- Emotional and mental wellbeing
+- Nutrition and lifestyle tips
 
-Guidelines for responses:
+Coverage scope: Conception → Full-term pregnancy → Postpartum → Early newborn care (first 3–6 months)
 
-Be calm, empathetic, and supportive.
+All content must be:
+- Generalized and educational
+- Non-diagnostic
+- Supportive in tone
 
-You are not a doctor; do not give diagnoses or prescriptions.
+### 3. Newborn Care Support
+Provide high-level informational guidance only on:
+- Feeding basics
+- Sleep patterns
+- General infant care awareness
 
-When a user mentions a symptom or concern:
+No medical or pediatric recommendations.
 
-Explain possible reasons in simple, understandable terms.
+---
 
-Use reassuring language while making it clear these are general possibilities, not a diagnosis.
+## SAFETY DETECTION — CRITICAL
 
-Always suggest seeing a healthcare professional for confirmation or if symptoms persist.
+If the user mentions ANY of the following signals — immediately stop normal guidance and escalate:
+- Severe pain
+- Bleeding or spotting
+- Dizziness or fainting
+- Difficulty breathing
+- High fever
+- Reduced or absent fetal movement
+- Any emergency-related phrasing
 
-Example: If a user says they haven’t gotten their period on time, you might explain it could be due to pregnancy, hormonal changes, stress, or other health factors, and recommend confirming with a doctor.
+When escalating, respond ONLY with a clear, calm message advising the user to seek immediate medical attention. Do NOT interpret the symptom, offer reassurance about it, or continue normal guidance.
 
-If danger signs are mentioned (heavy bleeding, severe pain, high fever, etc.), advise immediate medical care without delay.
+---
 
-Focus on providing education, reassurance, and guidance relevant to pregnancy, postpartum, and newborn care.
+## DEFINED LIMITATIONS
+
+You MUST NOT:
+- Provide medical diagnoses
+- Prescribe treatments or medication
+- Replace professional healthcare consultation
+- Interpret symptoms clinically
+- Offer emergency response handling
+
+Always remind users that your guidance is informational only and that a qualified healthcare professional should be consulted for any medical concerns.
 `;
 
     // // 🧠 Convert messages → Gemini format
@@ -527,8 +603,6 @@ app.get("/health", (_, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Gemini server running on port ${PORT}`));
 
-
-
 // whatsapp integration
 
 // Webhook verification (one-time, required by Meta)
@@ -559,12 +633,11 @@ app.post("/webhook", async (req, res) => {
 
   if (!message || message.type !== "text") return;
 
-  const from = message.from;         // sender's WhatsApp number
-  const text = message.text.body;    // their message text
+  const from = message.from; // sender's WhatsApp number
+  const text = message.text.body; // their message text
 
   await handleWhatsAppMessage(from, text);
 });
-
 
 // In-memory session store (use Redis in production)
 const sessions = {};
@@ -573,8 +646,9 @@ async function handleWhatsAppMessage(from, text) {
   // Init session for new users
   if (!sessions[from]) {
     sessions[from] = { language: null, messages: [] };
-    await sendWhatsAppMessage(from,
-      "👶 *Hi, I'm MamaBot!*\n\nI'm here to help with pregnancy, prenatal care, postpartum care, and newborn health.\n\nReply with:\n1️⃣ for English\n2️⃣ for සිංහල\n3️⃣ for தமிழ்"
+    await sendWhatsAppMessage(
+      from,
+      "👶 *Hi, I'm MamaBot!*\n\nI'm here to help with pregnancy, prenatal care, postpartum care, and newborn health.\n\nReply with:\n1️⃣ for English\n2️⃣ for සිංහල\n3️⃣ for தமிழ்",
     );
     return;
   }
@@ -588,7 +662,10 @@ async function handleWhatsAppMessage(from, text) {
     else if (pick === "2") session.language = "si";
     else if (pick === "3") session.language = "ta";
     else {
-      await sendWhatsAppMessage(from, "Please reply with 1, 2, or 3 to choose your language.");
+      await sendWhatsAppMessage(
+        from,
+        "Please reply with 1, 2, or 3 to choose your language.",
+      );
       return;
     }
 
@@ -618,7 +695,6 @@ async function handleWhatsAppMessage(from, text) {
   await sendWhatsAppMessage(from, reply);
 }
 
-
 async function getGeminiReply(messages, language = "en") {
   const languageInstructionMap = {
     en: "Respond ONLY in English.",
@@ -628,9 +704,13 @@ async function getGeminiReply(messages, language = "en") {
 
   const systemPrompt = `You are MamaBot... ${languageInstructionMap[language]}`; // your existing prompt
 
-  const filtered = messages.filter(m => m.role === "user" || m.role === "assistant");
-  const safeHistory = filtered.slice(filtered.findIndex(m => m.role === "user"));
-  const chatHistory = safeHistory.slice(0, -1).map(m => ({
+  const filtered = messages.filter(
+    (m) => m.role === "user" || m.role === "assistant",
+  );
+  const safeHistory = filtered.slice(
+    filtered.findIndex((m) => m.role === "user"),
+  );
+  const chatHistory = safeHistory.slice(0, -1).map((m) => ({
     role: m.role === "user" ? "user" : "model",
     parts: [{ text: m.content }],
   }));
@@ -651,25 +731,21 @@ async function getGeminiReply(messages, language = "en") {
   return result.response.text();
 }
 
-
 async function sendWhatsAppMessage(to, text) {
   const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const TOKEN = process.env.WHATSAPP_TOKEN;
 
-  await fetch(
-    `https://graph.facebook.com/v25.0/${PHONE_NUMBER_ID}/messages`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${TOKEN}`,
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to,
-        type: "text",
-        text: { body: text },
-      }),
-    }
-  );
+  await fetch(`https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${TOKEN}`,
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "text",
+      text: { body: text },
+    }),
+  });
 }
